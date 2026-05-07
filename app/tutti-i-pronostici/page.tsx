@@ -52,7 +52,7 @@ export default function AllPredictionsPage() {
       <h1 className="text-yellow-500 font-black uppercase italic text-3xl tracking-tighter shadow-sm">Area Riservata</h1>
       <div className="h-1 w-12 bg-yellow-500 my-4"></div>
       <p className="text-slate-500 text-[10px] uppercase tracking-[0.4em] font-black max-w-xs leading-relaxed">
-        Le giocate di tutti i partecipanti saranno sbloccate l'11 Giugno alle 21:00.
+        Le giocate di tutti i partecipanti saranno sbloccate l&apos;11 Giugno alle 21:00.
       </p>
       <button 
         onClick={() => router.push('/')}
@@ -100,7 +100,7 @@ export default function AllPredictionsPage() {
                         {user.username}
                       </h2>
                    </div>
-                   <span className="text-[7px] text-slate-600 font-black uppercase tracking-[0.2em] mt-1 ml-4">Mondiale Qatar 2026</span>
+                   <span className="text-[7px] text-slate-600 font-black uppercase tracking-[0.2em] mt-1 ml-4">Mondiale 2026</span>
                 </div>
                 <button 
                   onClick={() => router.push(`/riepilogo/${user.id}`)}

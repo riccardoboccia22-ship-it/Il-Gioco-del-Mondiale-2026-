@@ -169,13 +169,12 @@ export default function LoginPage() {
               </button>
 
               <button onClick={handleLogout} className="w-full py-4 text-slate-500 font-black rounded-2xl hover:text-red-400 transition-all uppercase tracking-widest text-[9px]">
-                Esci dall'account
+                Esci dall&apos;account
               </button>
             </div>
           </div>
 
         ) : (
-          /* --- LOGIN / REGISTRAZIONE (Invariato) --- */
           <div className="bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] shadow-2xl">
             <div className="text-center mb-8">
               <h1 className="text-4xl font-black text-yellow-500 uppercase tracking-tighter italic">
