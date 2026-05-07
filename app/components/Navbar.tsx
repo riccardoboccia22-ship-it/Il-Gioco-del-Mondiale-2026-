@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 // DEADLINE: 11 Giugno 2026, 21:00
-const WORLD_CUP_START_DATE = new Date('2026-06-11T21:00:00+02:00');
+const WORLD_CUP_START_DATE = new Date('2026-01-01T21:00:00+02:00');
 
 export default function Navbar() {
   const pathname = usePathname();

@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { toast } from 'react-hot-toast';
 
 // CONFIGURAZIONE
-const WORLD_CUP_START_DATE = new Date('2026-06-11T21:00:00+02:00'); 
+const WORLD_CUP_START_DATE = new Date('2026-01-01T21:00:00+02:00'); 
 
 const STAGES = [
   { id: 'R32', label: 'Sedicesimi', count: 32, pts: 2 },
