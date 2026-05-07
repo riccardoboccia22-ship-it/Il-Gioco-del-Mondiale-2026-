@@ -85,10 +85,16 @@ export default function LoginPage() {
   };
 
   const handleLogout = async () => {
-    await supabase.signOut();
-    setUserProfile(null);
-    toast.success("Disconnesso");
-    router.push('/');
+    try {
+      await supabase.auth.signOut();
+      setUserProfile(null);
+      toast.success("Disconnesso");
+      // Forza il refresh totale per pulire la cache di Supabase/Next.js
+      window.location.href = '/login'; 
+    } catch (error) {
+      console.error("Errore logout:", error);
+      window.location.href = '/login';
+    }
   };
 
   const checkIsAdmin = () => userProfile?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
