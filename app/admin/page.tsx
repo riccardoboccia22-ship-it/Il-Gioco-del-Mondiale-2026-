@@ -10,7 +10,7 @@ export default function AdminPage() {
   const [profiles, setProfiles] = useState<any[]>([]);
   const [bonusData, setBonusData] = useState<any>(null);
 
-  const ADMIN_EMAIL = "riccardoboccia22@gmail.com";
+  const ADMIN_EMAIL = "ricky@mondiale.it";
 
   useEffect(() => {
     async function init() {

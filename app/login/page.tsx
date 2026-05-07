@@ -7,9 +7,8 @@ import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -23,7 +22,8 @@ export default function LoginPage() {
   });
   const router = useRouter();
 
-  const ADMIN_EMAIL = "riccardoboccia22@gmail.com"; 
+  // TUA EMAIL FITTIZIA PER ADMIN
+  const ADMIN_EMAIL = "ricky@mondiale.it"; 
 
   useEffect(() => {
     checkUser();
@@ -38,7 +38,11 @@ export default function LoginPage() {
         .eq('id', user.id)
         .single();
       
-      setUserProfile({ ...user, username: profile?.username || 'Guerriero' });
+      setUserProfile({ 
+        ...user, 
+        username: profile?.username || 'Guerriero' 
+      });
+
       setStats({ 
         total: profile?.points || 0, 
         groups: profile?.points_groups || 0,
@@ -53,10 +57,19 @@ export default function LoginPage() {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
+    // TRUCCO USERNAME -> EMAIL FITTIZIA
+    const fakeEmail = `${username.trim().toLowerCase()}@mondiale.it`;
+
     if (isRegistering) {
-      const { data, error } = await supabase.auth.signUp({ email, password });
-      if (error) { toast.error(error.message); } 
-      else if (data.user) {
+      const { data, error } = await supabase.auth.signUp({ 
+        email: fakeEmail, 
+        password: password 
+      });
+
+      if (error) { 
+        toast.error("Username già occupato o password troppo corta"); 
+      } else if (data.user) {
         await supabase.from('profiles').insert([{ 
           id: data.user.id, 
           username: username, 
@@ -67,9 +80,15 @@ export default function LoginPage() {
         window.location.reload();
       }
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) { toast.error("Credenziali non valide"); } 
-      else { window.location.reload(); }
+      const { error } = await supabase.auth.signInWithPassword({ 
+        email: fakeEmail, 
+        password: password 
+      });
+      if (error) { 
+        toast.error("Nome o Password errati"); 
+      } else { 
+        window.location.reload(); 
+      }
     }
     setLoading(false);
   };
@@ -82,7 +101,13 @@ export default function LoginPage() {
     window.location.reload();
   };
 
-  const checkIsAdmin = () => userProfile?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  // CONTROLLO ADMIN DOPPIO (Email o Username)
+  const checkIsAdmin = () => {
+    if (!userProfile) return false;
+    const isEmailAdmin = userProfile.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    const isUsernameAdmin = userProfile.username?.toLowerCase() === "ricky";
+    return isEmailAdmin || isUsernameAdmin;
+  };
 
   return (
     <main className="min-h-screen bg-slate-950 text-white p-6 pb-32 flex items-start justify-center overflow-y-auto font-sans">
@@ -91,7 +116,7 @@ export default function LoginPage() {
         {userProfile ? (
           <div className="space-y-6">
             
-            {/* SCHEDA PROFILO HEADER */}
+            {/* SCHEDA PROFILO */}
             <div className="bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] text-center relative overflow-hidden shadow-2xl">
               <div className="absolute top-4 right-4">
                 {checkIsAdmin() && <span className="bg-red-500/10 text-red-500 text-[8px] font-black px-2 py-1 rounded-full border border-red-500/20 uppercase tracking-widest">Admin</span>}
@@ -152,39 +177,21 @@ export default function LoginPage() {
               <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] ml-2 italic">Gestisci Pronostici</h2>
               
               <div className="grid grid-cols-1 gap-2">
-                {/* 1. GIRONI */}
-                <button 
-                  onClick={() => router.push('/matches')} 
-                  className="w-full py-5 bg-white text-slate-950 font-black rounded-2xl uppercase tracking-widest text-xs hover:bg-yellow-400 transition-all active:scale-95 flex items-center justify-center gap-2"
-                >
+                <button onClick={() => router.push('/matches')} className="w-full py-5 bg-white text-slate-950 font-black rounded-2xl uppercase tracking-widest text-xs hover:bg-yellow-400 transition-all active:scale-95 flex items-center justify-center gap-2">
                   Fase a Gironi ⚽
                 </button>
-
                 <div className="grid grid-cols-2 gap-2">
-                  {/* 2. FASE FINALE */}
-                  <button 
-                    onClick={() => router.push('/bracket')} 
-                    className="py-4 bg-slate-900 border border-slate-800 text-white font-black rounded-2xl uppercase tracking-widest text-[9px] hover:border-yellow-500/50 transition-all active:scale-95 flex items-center justify-center gap-2"
-                  >
+                  <button onClick={() => router.push('/bracket')} className="py-4 bg-slate-900 border border-slate-800 text-white font-black rounded-2xl uppercase tracking-widest text-[9px] hover:border-yellow-500/50 transition-all active:scale-95 flex items-center justify-center gap-2">
                     Fase Finale 🏆
                   </button>
-
-                  {/* 3. BONUS */}
-                  <button 
-                    onClick={() => router.push('/bonus')} 
-                    className="py-4 bg-slate-900 border border-slate-800 text-white font-black rounded-2xl uppercase tracking-widest text-[9px] hover:border-yellow-500/50 transition-all active:scale-95 flex items-center justify-center gap-2"
-                  >
+                  <button onClick={() => router.push('/bonus')} className="py-4 bg-slate-900 border border-slate-800 text-white font-black rounded-2xl uppercase tracking-widest text-[9px] hover:border-yellow-500/50 transition-all active:scale-95 flex items-center justify-center gap-2">
                     Super Bonus ⭐
                   </button>
                 </div>
               </div>
 
-              {/* NAVIGAZIONE EXTRA */}
               <div className="pt-4 space-y-2">
-                <button 
-                  onClick={() => router.push('/leaderboard')} 
-                  className="w-full py-4 bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 font-black rounded-2xl uppercase tracking-widest text-[10px] hover:bg-yellow-500 hover:text-slate-950 transition-all"
-                >
+                <button onClick={() => router.push('/leaderboard')} className="w-full py-4 bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 font-black rounded-2xl uppercase tracking-widest text-[10px] hover:bg-yellow-500 hover:text-slate-950 transition-all">
                   Classifica 🥇
                 </button>
 
@@ -194,10 +201,7 @@ export default function LoginPage() {
                   </Link>
                 )}
                 
-                <button 
-                  onClick={handleLogout} 
-                  className="w-full py-4 text-slate-600 font-black rounded-2xl uppercase tracking-[0.2em] text-[8px] hover:text-rose-500 transition-all cursor-pointer"
-                >
+                <button onClick={handleLogout} className="w-full py-4 text-slate-600 font-black rounded-2xl uppercase tracking-[0.2em] text-[8px] hover:text-rose-500 transition-all cursor-pointer">
                   Logout
                 </button>
               </div>
@@ -214,10 +218,7 @@ export default function LoginPage() {
             </div>
 
             <form onSubmit={handleAuth} className="space-y-4">
-              {isRegistering && (
-                <input type="text" placeholder="USERNAME" className="w-full p-4 bg-slate-950 border-2 border-slate-800 rounded-2xl focus:border-yellow-500 outline-none text-white font-black text-xs uppercase" value={username} onChange={(e) => setUsername(e.target.value)} required />
-              )}
-              <input type="email" placeholder="EMAIL" className="w-full p-4 bg-slate-950 border-2 border-slate-800 rounded-2xl focus:border-yellow-500 outline-none text-white font-black text-xs uppercase" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <input type="text" placeholder="USERNAME" className="w-full p-4 bg-slate-950 border-2 border-slate-800 rounded-2xl focus:border-yellow-500 outline-none text-white font-black text-xs uppercase" value={username} onChange={(e) => setUsername(e.target.value)} required />
               <input type="password" placeholder="PASSWORD" className="w-full p-4 bg-slate-950 border-2 border-slate-800 rounded-2xl focus:border-yellow-500 outline-none text-white font-black text-xs uppercase" value={password} onChange={(e) => setPassword(e.target.value)} required />
               <button type="submit" disabled={loading} className="w-full py-5 bg-yellow-500 text-slate-950 font-black rounded-2xl hover:bg-yellow-400 transition-all uppercase tracking-widest text-xs mt-4 active:scale-95 shadow-xl shadow-yellow-500/10">
                 {loading ? 'Sincronizzazione...' : isRegistering ? 'Crea Account' : 'Entra in Gioco'}
