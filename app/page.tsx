@@ -20,7 +20,7 @@ export default function LandingPage() {
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-yellow-500/10 blur-[120px] rounded-full"></div>
       <div className="max-w-3xl w-full text-center z-10">
         <h1 className="text-5xl md:text-7xl font-black uppercase italic tracking-tighter mb-6">
-          WORLD CUP <span className="text-yellow-500">2026</span>
+          IL GIOCO DEL MONDIALE <span className="text-yellow-500">2026</span>
         </h1>
         <p className="text-slate-400 mb-10 uppercase tracking-widest text-xs font-bold italic">Il gioco dei pronostici ufficiale</p>
         
