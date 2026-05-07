@@ -1,10 +1,11 @@
 'use client';
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 
-// DEADLINE: 11 Giugno 2026, ore 21:00 (Ora Italiana)
+// DEADLINE: 11 Giugno 2026, ore 21:00
 const WORLD_CUP_START_DATE = new Date('2026-06-11T21:00:00+02:00');
 
 export default function BonusPage() {
@@ -14,9 +15,9 @@ export default function BonusPage() {
     high_scoring_match: ''
   });
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
   const router = useRouter();
 
-  // Controllo se il tempo è scaduto
   const isExpired = new Date() > WORLD_CUP_START_DATE;
 
   useEffect(() => {
@@ -24,137 +25,148 @@ export default function BonusPage() {
   }, []);
 
   async function fetchExistingBonus() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      // 1. Controlla sessione utente
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        console.log("Nessuna sessione trovata");
+        router.push('/login');
+        return;
+      }
 
-    // Recuperiamo le risposte dell'utente dalla tabella corretta
-    const { data, error } = await supabase
-      .from('user_bonus_answers')
-      .select('*')
-      .eq('user_id', user.id)
-      .maybeSingle();
+      const user = session.user;
 
-    if (data) {
-      setFormData({
-        total_red_cards: data.total_red_cards?.toString() || '',
-        top_scorer: data.top_scorer || '',
-        high_scoring_match: data.high_scoring_match || ''
-      });
+      // 2. Recupera i dati
+      const { data, error } = await supabase
+        .from('user_bonus_answers')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Errore recupero dati:", error.message);
+      }
+
+      if (data) {
+        setFormData({
+          total_red_cards: data.total_red_cards !== null ? data.total_red_cards.toString() : '',
+          top_scorer: data.top_scorer || '',
+          high_scoring_match: data.high_scoring_match || ''
+        });
+      }
+    } catch (err) {
+      console.error("Errore imprevisto durante il fetch:", err);
+    } finally {
+      // IMPORTANTE: Questo garantisce che la scritta "Caricamento" sparisca sempre
+      setFetching(false);
     }
   }
 
   const saveBonus = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (isExpired) {
-      toast.error("Tempo scaduto! Giocate chiuse.");
+      toast.error("Tempo scaduto!");
       return;
     }
 
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      toast.error("Devi accedere per salvare!");
-      router.push('/login');
-      return;
-    }
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Utente non autenticato");
 
-    // Upsert dei dati: salviamo tutto in MAIUSCOLO per facilitare il calcolo punti
-    const { error } = await supabase
-      .from('user_bonus_answers')
-      .upsert({
-        user_id: user.id,
-        total_red_cards: parseInt(formData.total_red_cards),
-        top_scorer: formData.top_scorer.toUpperCase().trim(),
-        high_scoring_match: formData.high_scoring_match.toUpperCase().trim()
-      }, { onConflict: 'user_id' });
+      const redCardsClean = formData.total_red_cards.trim() === "" 
+        ? 0 
+        : parseInt(formData.total_red_cards);
 
-    if (error) {
-      toast.error("Errore durante il salvataggio.");
-      console.error(error);
-    } else {
-      toast.success("Bonus salvati con successo! 🍀", {
-        duration: 4000,
-        icon: '🏆',
-      });
+      const { error } = await supabase
+        .from('user_bonus_answers')
+        .upsert({
+          user_id: user.id,
+          total_red_cards: redCardsClean,
+          top_scorer: (formData.top_scorer || "").toUpperCase().trim(),
+          high_scoring_match: (formData.high_scoring_match || "").toUpperCase().trim()
+        });
+
+      if (error) throw error;
+      toast.success("Bonus salvati! 🏆");
+    } catch (err: any) {
+      console.error("Errore salvataggio:", err.message);
+      toast.error("Errore durante il salvataggio");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
+  if (fetching) return (
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center font-sans">
+      <div className="text-yellow-500 font-black animate-pulse uppercase text-[10px] tracking-widest">Sincronizzazione Bonus...</div>
+      <button 
+        onClick={() => setFetching(false)} 
+        className="mt-4 text-[8px] text-slate-600 uppercase underline"
+      >
+        Forza caricamento
+      </button>
+    </div>
+  );
+
   return (
-    <main className="min-h-screen bg-slate-950 text-white p-6 pb-32">
+    <main className="min-h-screen bg-slate-950 text-white p-6 pb-32 font-sans italic">
       <div className="max-w-md mx-auto">
         <header className="text-center mb-10 mt-6">
-          <div className="inline-block p-3 bg-yellow-500/10 rounded-full mb-4 border border-yellow-500/20 shadow-[0_0_20px_rgba(234,179,8,0.1)]">
-            <span className="text-3xl">{isExpired ? '🔒' : '✨'}</span>
-          </div>
-          <h1 className="text-4xl font-black text-yellow-500 uppercase italic tracking-tighter">Super Bonus</h1>
-          <p className="text-slate-500 text-[10px] mt-2 uppercase tracking-[0.3em] font-black">
-            {isExpired ? 'Giocate Chiuse' : 'Indovina e vinci 30 punti'}
-          </p>
+          <h1 className="text-4xl font-black text-yellow-500 uppercase tracking-tighter">Super Bonus</h1>
+          <p className="text-slate-500 text-[10px] mt-2 uppercase tracking-[0.3em] font-black italic">Configura i tuoi premi speciali</p>
         </header>
 
         <form onSubmit={saveBonus} className="space-y-6">
-          <div className={`bg-slate-900/50 backdrop-blur-md p-6 rounded-[2.5rem] border border-slate-800 space-y-6 shadow-2xl transition-opacity ${isExpired ? 'opacity-60' : ''}`}>
+          <div className={`bg-slate-900/50 p-6 rounded-[2.5rem] border border-slate-800 space-y-6 ${isExpired ? 'opacity-50' : ''}`}>
             
-            {/* 1. TOTALE ESPULSIONI */}
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">🔴 Totale Espulsioni (10pt)</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 italic">🔴 Totale Espulsioni (10pt)</label>
               <input 
                 type="number" 
                 disabled={isExpired}
                 value={formData.total_red_cards}
+                onChange={(e) => setFormData({ ...formData, total_red_cards: e.target.value })}
                 placeholder="Esempio: 15"
-                className="w-full bg-slate-800/50 border-2 border-slate-700 rounded-2xl p-4 outline-none focus:border-yellow-500 transition-all font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                onChange={(e) => setFormData({...formData, total_red_cards: e.target.value})}
+                className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl p-4 outline-none focus:border-yellow-500 transition-all font-bold text-white italic"
                 required
               />
             </div>
 
-            {/* 2. CAPOCANNONIERE */}
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">👟 Capocannoniere (10pt)</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 italic">👟 Capocannoniere (10pt)</label>
               <input 
                 type="text" 
                 disabled={isExpired}
                 value={formData.top_scorer}
+                onChange={(e) => setFormData({ ...formData, top_scorer: e.target.value })}
                 placeholder="Esempio: MBAPPÉ"
-                className="w-full bg-slate-800/50 border-2 border-slate-700 rounded-2xl p-4 outline-none focus:border-yellow-500 transition-all font-bold text-white placeholder:text-slate-600 uppercase disabled:opacity-50 disabled:cursor-not-allowed"
-                onChange={(e) => setFormData({...formData, top_scorer: e.target.value})}
+                className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl p-4 outline-none focus:border-yellow-500 transition-all font-bold text-white uppercase italic"
                 required
               />
             </div>
 
-            {/* 3. PARTITA CON PIÙ GOL */}
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">⚽ Partita con più gol (10pt)</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 italic">⚽ Partita con più gol (10pt)</label>
               <input 
                 type="text" 
                 disabled={isExpired}
                 value={formData.high_scoring_match}
+                onChange={(e) => setFormData({ ...formData, high_scoring_match: e.target.value })}
                 placeholder="Esempio: MESSICO - SUDAFRICA"
-                className="w-full bg-slate-800/50 border-2 border-slate-700 rounded-2xl p-4 outline-none focus:border-yellow-500 transition-all font-bold text-white placeholder:text-slate-600 uppercase disabled:opacity-50 disabled:cursor-not-allowed"
-                onChange={(e) => setFormData({...formData, high_scoring_match: e.target.value})}
+                className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl p-4 outline-none focus:border-yellow-500 transition-all font-bold text-white uppercase italic"
                 required
               />
-              {/* SCRITTA INFORMATIVA EVIDENTE */}
-              <p className="text-[10px] text-yellow-500/90 mt-3 ml-2 font-black uppercase italic tracking-tighter">
-                ⚠️ VALIDA SOLO PER LA FASE A GIRONI
-              </p>
             </div>
           </div>
 
           <button 
             type="submit"
             disabled={loading || isExpired}
-            className={`w-full font-black py-5 rounded-[2rem] uppercase text-xs tracking-[0.2em] shadow-xl transition-all active:scale-95 ${
-              isExpired 
-                ? 'bg-slate-800 text-slate-500 border border-slate-700 shadow-none cursor-not-allowed' 
-                : 'bg-yellow-500 hover:bg-yellow-400 text-slate-950 shadow-yellow-500/20 shadow-lg'
-            }`}
+            className="w-full font-black py-5 rounded-[2.2rem] uppercase text-xs tracking-[0.2em] bg-yellow-500 text-slate-950 shadow-lg shadow-yellow-500/20 active:scale-95 transition-all disabled:bg-slate-800 disabled:text-slate-600 italic"
           >
-            {loading ? 'Salvataggio...' : isExpired ? '🔒 Bonus Bloccati' : 'Conferma Scommesse Bonus'}
+            {loading ? 'Salvataggio...' : isExpired ? '🔒 Chiuso' : 'Conferma Scommesse Bonus'}
           </button>
         </form>
       </div>
