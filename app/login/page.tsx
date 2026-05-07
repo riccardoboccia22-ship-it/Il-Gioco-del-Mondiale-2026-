@@ -84,15 +84,27 @@ export default function LoginPage() {
     setLoading(false);
   };
 
-  const handleLogout = async () => {
+  // --- LOGOUT POTENZIATO ---
+  const handleLogout = async (e: React.MouseEvent) => {
+    e.preventDefault(); // Impedisce comportamenti strani del browser
     try {
+      console.log("Tentativo di logout...");
       await supabase.auth.signOut();
+      
+      // Pulizia totale della memoria del browser
+      localStorage.clear();
+      sessionStorage.clear();
+      
       setUserProfile(null);
-      toast.success("Disconnesso");
-      // Forza il refresh totale per pulire la cache di Supabase/Next.js
-      window.location.href = '/login'; 
+      toast.success("Disconnesso con successo");
+      
+      // Forza il ritorno alla pagina di login ricaricando tutto
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 500);
+      
     } catch (error) {
-      console.error("Errore logout:", error);
+      console.error("Errore durante il logout:", error);
       window.location.href = '/login';
     }
   };
@@ -127,32 +139,24 @@ export default function LoginPage() {
               <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] ml-2">Resoconto Punti</h2>
               
               <div className="grid grid-cols-2 gap-3">
-                {/* GRUPPI */}
                 <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-3xl">
                   <p className="text-[8px] font-black text-slate-500 uppercase italic mb-1">Fase a Gironi</p>
                   <p className="text-2xl font-black text-white">{stats.groups} <span className="text-[10px] text-slate-500">PT</span></p>
                 </div>
-
-                {/* BRACKET */}
                 <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-3xl">
                   <p className="text-[8px] font-black text-slate-500 uppercase italic mb-1">Fase Finale</p>
                   <p className="text-2xl font-black text-white">{stats.bracket} <span className="text-[10px] text-slate-500">PT</span></p>
                 </div>
-
-                {/* BONUS */}
                 <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-3xl">
                   <p className="text-[8px] font-black text-slate-500 uppercase italic mb-1">Super Bonus</p>
                   <p className="text-2xl font-black text-white">{stats.bonus} <span className="text-[10px] text-slate-500">PT</span></p>
                 </div>
-
-                {/* POSIZIONE */}
                 <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-3xl">
                   <p className="text-[8px] font-black text-slate-500 uppercase italic mb-1">Posizione</p>
                   <p className="text-2xl font-black text-white">#{stats.rank}</p>
                 </div>
               </div>
 
-              {/* TOTALE GENERALE */}
               <div className="bg-yellow-500 p-6 rounded-[2rem] flex items-center justify-between shadow-lg shadow-yellow-500/10">
                 <div>
                   <p className="text-[9px] font-black text-slate-950 uppercase tracking-widest italic">Punteggio Totale</p>
@@ -174,7 +178,12 @@ export default function LoginPage() {
                 Vai ai Match
               </button>
 
-              <button onClick={handleLogout} className="w-full py-4 text-slate-500 font-black rounded-2xl hover:text-red-400 transition-all uppercase tracking-widest text-[9px]">
+              {/* PULSANTE LOGOUT MODIFICATO */}
+              <button 
+                type="button"
+                onClick={handleLogout} 
+                className="w-full py-4 text-slate-500 font-black rounded-2xl hover:text-red-400 transition-all uppercase tracking-widest text-[9px] cursor-pointer"
+              >
                 Esci dall&apos;account
               </button>
             </div>
@@ -202,7 +211,6 @@ export default function LoginPage() {
                   required
                 />
               )}
-              
               <input
                 type="email"
                 placeholder="EMAIL"
@@ -211,7 +219,6 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
-
               <input
                 type="password"
                 placeholder="PASSWORD"
@@ -220,7 +227,6 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
-
               <button
                 type="submit"
                 disabled={loading}
