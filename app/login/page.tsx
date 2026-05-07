@@ -18,7 +18,8 @@ export default function LoginPage() {
     groups: 0, 
     bracket: 0, 
     bonus: 0, 
-    rank: '--' 
+    rank: '--',
+    isPaid: false // Nuova statistica per la quota
   });
   const router = useRouter();
 
@@ -28,9 +29,45 @@ export default function LoginPage() {
     checkUser();
   }, []);
 
+  // --- RICALCOLO PUNTI AUTOMATICO ALL'ACCESSO ---
+  async function runPointsUpdate(userId: string) {
+    try {
+      const { data: matches } = await supabase.from('matches').select('*').not('home_score_final', 'is', null);
+      const { data: userPreds } = await supabase.from('predictions').select('*').eq('user_id', userId);
+      
+      if (matches && userPreds) {
+        let totalPoints = 0;
+        userPreds.forEach(pred => {
+          const match = matches.find(m => m.id === pred.match_id);
+          if (match) {
+            const pHome = Number(pred.home_score);
+            const pAway = Number(pred.away_score);
+            const mHome = Number(match.home_score_final);
+            const mAway = Number(match.away_score_final);
+
+            if (pHome === mHome && pAway === mAway) {
+              totalPoints += 10;
+            } else {
+              const realDiff = mHome - mAway;
+              const predDiff = pHome - pAway;
+              if ((realDiff > 0 && predDiff > 0) || (realDiff < 0 && predDiff < 0) || (realDiff === 0 && predDiff === 0)) {
+                totalPoints += 5;
+              }
+            }
+          }
+        });
+        await supabase.from('profiles').update({ points: totalPoints, points_groups: totalPoints }).eq('id', userId);
+      }
+    } catch (e) { console.error(e); }
+  }
+
   async function checkUser() {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
+      // 1. Ricalcola i punti prima di mostrare il profilo
+      await runPointsUpdate(user.id);
+
+      // 2. Recupera il profilo completo (inclusa la quota)
       const { data: profile } = await supabase
         .from('profiles')
         .select('*')
@@ -43,7 +80,8 @@ export default function LoginPage() {
         groups: profile?.points_groups || 0,
         bracket: profile?.points_bracket || 0,
         bonus: profile?.points_bonus || 0,
-        rank: profile?.rank || '--' 
+        rank: profile?.rank || '--',
+        isPaid: profile?.is_paid || false // Recuperiamo lo stato del pagamento
       });
     }
   }
@@ -51,60 +89,40 @@ export default function LoginPage() {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     if (isRegistering) {
       const { data, error } = await supabase.auth.signUp({ email, password });
-      if (error) {
-        toast.error(error.message);
-      } else if (data.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([{ 
-            id: data.user.id, 
-            username: username, 
-            points: 0,
-            points_groups: 0,
-            points_bracket: 0,
-            points_bonus: 0
-          }]);
-
-        if (profileError) console.error("Errore profilo:", profileError);
-        toast.success('Account creato! Benvenuto nel Mondiale.');
-        setIsRegistering(false);
+      if (error) { toast.error(error.message); } 
+      else if (data.user) {
+        await supabase.from('profiles').insert([{ 
+          id: data.user.id, 
+          username: username, 
+          points: 0, 
+          points_groups: 0, 
+          points_bracket: 0, 
+          points_bonus: 0,
+          is_paid: false // Di base un nuovo utente non ha pagato
+        }]);
+        toast.success('Benvenuto nel Mondiale!');
         window.location.reload();
       }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        toast.error("Credenziali non valide");
-      } else {
-        window.location.reload();
-      }
+      if (error) { toast.error("Credenziali non valide"); } 
+      else { window.location.reload(); }
     }
     setLoading(false);
   };
 
-  // --- LOGOUT POTENZIATO ---
   const handleLogout = async (e: React.MouseEvent) => {
-    e.preventDefault(); // Impedisce comportamenti strani del browser
+    e.preventDefault();
     try {
-      console.log("Tentativo di logout...");
       await supabase.auth.signOut();
-      
-      // Pulizia totale della memoria del browser
       localStorage.clear();
       sessionStorage.clear();
-      
       setUserProfile(null);
-      toast.success("Disconnesso con successo");
-      
-      // Forza il ritorno alla pagina di login ricaricando tutto
-      setTimeout(() => {
-        window.location.href = '/login';
-      }, 500);
-      
+      toast.success("Disconnesso");
+      setTimeout(() => { window.location.href = '/login'; }, 500);
     } catch (error) {
-      console.error("Errore durante il logout:", error);
       window.location.href = '/login';
     }
   };
@@ -131,25 +149,31 @@ export default function LoginPage() {
               <h1 className="text-2xl font-black uppercase italic tracking-tighter">
                 {userProfile.username}
               </h1>
-              <p className="text-slate-500 text-[9px] font-black uppercase tracking-[0.3em] mt-1 italic">World Cup Challenger</p>
+              
+              {/* BADGE PAGAMENTO QUOTA */}
+              <div className="mt-2 flex justify-center">
+                {stats.isPaid ? (
+                  <span className="bg-emerald-500/10 text-emerald-500 text-[8px] font-black px-3 py-1 rounded-full border border-emerald-500/20 uppercase tracking-[0.2em] flex items-center gap-1">
+                    <span className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse"></span>
+                    Quota Versata
+                  </span>
+                ) : (
+                  <span className="bg-rose-500/10 text-rose-500 text-[8px] font-black px-3 py-1 rounded-full border border-rose-500/20 uppercase tracking-[0.2em] flex items-center gap-1">
+                    <span className="w-1 h-1 bg-rose-500 rounded-full animate-bounce"></span>
+                    Quota Mancante
+                  </span>
+                )}
+              </div>
             </div>
 
-            {/* RESOCONTO PUNTI DETTAGLIATO */}
+            {/* RESOCONTO PUNTI */}
             <div className="space-y-4">
               <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] ml-2">Resoconto Punti</h2>
               
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-3xl">
-                  <p className="text-[8px] font-black text-slate-500 uppercase italic mb-1">Fase a Gironi</p>
+                  <p className="text-[8px] font-black text-slate-500 uppercase italic mb-1">Gironi</p>
                   <p className="text-2xl font-black text-white">{stats.groups} <span className="text-[10px] text-slate-500">PT</span></p>
-                </div>
-                <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-3xl">
-                  <p className="text-[8px] font-black text-slate-500 uppercase italic mb-1">Fase Finale</p>
-                  <p className="text-2xl font-black text-white">{stats.bracket} <span className="text-[10px] text-slate-500">PT</span></p>
-                </div>
-                <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-3xl">
-                  <p className="text-[8px] font-black text-slate-500 uppercase italic mb-1">Super Bonus</p>
-                  <p className="text-2xl font-black text-white">{stats.bonus} <span className="text-[10px] text-slate-500">PT</span></p>
                 </div>
                 <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-3xl">
                   <p className="text-[8px] font-black text-slate-500 uppercase italic mb-1">Posizione</p>
@@ -173,73 +197,36 @@ export default function LoginPage() {
                   ⚙️ Gestione Risultati
                 </Link>
               )}
-              
               <button onClick={() => router.push('/matches')} className="w-full py-4 bg-white/5 text-white border border-white/10 font-black rounded-2xl hover:bg-white/10 transition-all uppercase tracking-widest text-xs">
                 Vai ai Match
               </button>
-
-              {/* PULSANTE LOGOUT MODIFICATO */}
-              <button 
-                type="button"
-                onClick={handleLogout} 
-                className="w-full py-4 text-slate-500 font-black rounded-2xl hover:text-red-400 transition-all uppercase tracking-widest text-[9px] cursor-pointer"
-              >
+              <button onClick={() => router.push('/leaderboard')} className="w-full py-4 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 font-black rounded-2xl hover:bg-yellow-500 hover:text-slate-950 transition-all uppercase tracking-widest text-xs">
+                Vedi Classifica
+              </button>
+              <button onClick={handleLogout} className="w-full py-4 text-slate-500 font-black rounded-2xl hover:text-red-400 transition-all uppercase tracking-widest text-[9px] cursor-pointer">
                 Esci dall&apos;account
               </button>
             </div>
           </div>
-
         ) : (
+          /* Form Login/Registrazione... */
           <div className="bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] shadow-2xl">
             <div className="text-center mb-8">
-              <h1 className="text-4xl font-black text-yellow-500 uppercase tracking-tighter italic">
+              <h1 className="text-4xl font-black text-yellow-500 uppercase italic">
                 {isRegistering ? 'Iscriviti' : 'Entra'}
               </h1>
-              <p className="text-slate-500 text-[9px] font-black uppercase tracking-[0.3em] mt-2 italic">
-                World Cup 2026 Prediction
-              </p>
             </div>
-
             <form onSubmit={handleAuth} className="space-y-4">
               {isRegistering && (
-                <input
-                  type="text"
-                  placeholder="USERNAME (ES: BOMBER99)"
-                  className="w-full p-4 bg-slate-950 border-2 border-slate-800 rounded-2xl focus:border-yellow-500 transition-all text-white font-black text-xs uppercase"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                />
+                <input type="text" placeholder="USERNAME" className="w-full p-4 bg-slate-950 border-2 border-slate-800 rounded-2xl text-white font-black text-xs uppercase" value={username} onChange={(e) => setUsername(e.target.value)} required />
               )}
-              <input
-                type="email"
-                placeholder="EMAIL"
-                className="w-full p-4 bg-slate-950 border-2 border-slate-800 rounded-2xl focus:border-yellow-500 transition-all text-white font-black text-xs uppercase"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-              <input
-                type="password"
-                placeholder="PASSWORD"
-                className="w-full p-4 bg-slate-950 border-2 border-slate-800 rounded-2xl focus:border-yellow-500 transition-all text-white font-black text-xs uppercase"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-4 bg-yellow-500 text-slate-950 font-black rounded-2xl hover:bg-yellow-400 transition-all uppercase tracking-widest text-xs mt-4 active:scale-95 disabled:opacity-50"
-              >
+              <input type="email" placeholder="EMAIL" className="w-full p-4 bg-slate-950 border-2 border-slate-800 rounded-2xl text-white font-black text-xs uppercase" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <input type="password" placeholder="PASSWORD" className="w-full p-4 bg-slate-950 border-2 border-slate-800 rounded-2xl text-white font-black text-xs uppercase" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <button type="submit" disabled={loading} className="w-full py-4 bg-yellow-500 text-slate-950 font-black rounded-2xl uppercase tracking-widest text-xs mt-4 active:scale-95 disabled:opacity-50">
                 {loading ? 'Sincronizzazione...' : isRegistering ? 'Crea Account' : 'Inizia a Giocare'}
               </button>
             </form>
-
-            <button
-              onClick={() => setIsRegistering(!isRegistering)}
-              className="w-full mt-8 text-[9px] font-black text-slate-500 hover:text-yellow-500 transition-colors uppercase tracking-widest italic"
-            >
+            <button onClick={() => setIsRegistering(!isRegistering)} className="w-full mt-8 text-[9px] font-black text-slate-500 uppercase tracking-widest italic hover:text-yellow-500 transition-colors">
               {isRegistering ? 'Hai già un account? Accedi' : 'Nuovo giocatore? Registrati'}
             </button>
           </div>
