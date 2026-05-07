@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { toast } from 'react-hot-toast'; // Import Toast
+import { toast } from 'react-hot-toast';
 
+// Data di inizio del Mondiale 2026
 const WORLD_CUP_START_DATE = new Date('2026-06-11T21:00:00+02:00');
 
 export default function MatchesPage() {
@@ -24,7 +25,7 @@ export default function MatchesPage() {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       
-      // 1. Carichiamo le partite
+      // 1. Carichiamo le partite (inclusi i risultati finali inseriti dall'admin)
       const { data: matchesData } = await supabase
         .from('matches')
         .select('*')
@@ -145,25 +146,36 @@ export default function MatchesPage() {
                     </div>
                   </div>
                   
-                  {/* Inputs */}
-                  <div className="flex items-center gap-1 sm:gap-2">
-                    <input 
-                      type="number" 
-                      placeholder="-"
-                      value={predictions[match.id]?.home ?? ''}
-                      disabled={isExpired}
-                      className="w-11 h-11 sm:w-14 sm:h-14 bg-slate-950 border-2 border-slate-800 rounded-2xl text-center font-black text-yellow-500 text-xl focus:outline-none focus:border-yellow-500 transition-all appearance-none disabled:opacity-50"
-                      onChange={(e) => handleInputChange(match.id, 'home', e.target.value)}
-                    />
-                    <span className="text-slate-700 font-black text-xl">:</span>
-                    <input 
-                      type="number" 
-                      placeholder="-"
-                      value={predictions[match.id]?.away ?? ''}
-                      disabled={isExpired}
-                      className="w-11 h-11 sm:w-14 sm:h-14 bg-slate-950 border-2 border-slate-800 rounded-2xl text-center font-black text-yellow-500 text-xl focus:outline-none focus:border-yellow-500 transition-all appearance-none disabled:opacity-50"
-                      onChange={(e) => handleInputChange(match.id, 'away', e.target.value)}
-                    />
+                  {/* Inputs e Risultato Finale */}
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <input 
+                        type="number" 
+                        placeholder="-"
+                        value={predictions[match.id]?.home ?? ''}
+                        disabled={isExpired}
+                        className="w-11 h-11 sm:w-14 sm:h-14 bg-slate-950 border-2 border-slate-800 rounded-2xl text-center font-black text-yellow-500 text-xl focus:outline-none focus:border-yellow-500 transition-all appearance-none disabled:opacity-50"
+                        onChange={(e) => handleInputChange(match.id, 'home', e.target.value)}
+                      />
+                      <span className="text-slate-700 font-black text-xl">:</span>
+                      <input 
+                        type="number" 
+                        placeholder="-"
+                        value={predictions[match.id]?.away ?? ''}
+                        disabled={isExpired}
+                        className="w-11 h-11 sm:w-14 sm:h-14 bg-slate-950 border-2 border-slate-800 rounded-2xl text-center font-black text-yellow-500 text-xl focus:outline-none focus:border-yellow-500 transition-all appearance-none disabled:opacity-50"
+                        onChange={(e) => handleInputChange(match.id, 'away', e.target.value)}
+                      />
+                    </div>
+
+                    {/* Badge Risultato Reale dell'Admin */}
+                    {(match.home_score_final !== null && match.home_score_final !== undefined) && (
+                      <div className="mt-1 bg-yellow-500/10 border border-yellow-500/20 px-3 py-1 rounded-full animate-in zoom-in duration-500">
+                        <p className="text-[9px] font-black text-yellow-500 uppercase italic">
+                          Finale: {match.home_score_final} - {match.away_score_final}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Away Team */}
